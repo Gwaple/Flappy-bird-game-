@@ -1,0 +1,21 @@
+body {
+  background: #70c5ce;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+h1 {
+  color: #fff;
+  letter-spacing: 2px;
+}
+canvas {
+  background: #4ec0ca;
+  display: block;
+  margin: 0 auto;
+  border: 2px solid #333;
+  border-radius: 8px;
+}
+p {
+  color: #fff;
+  font-size: 1.2em;
+  margin-top: 12px;
+}
