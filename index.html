@@ -2,13 +2,326 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Flappy Bird Clone</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Flappy Bird - Login Integrated</title>
+  <meta name="viewport" content="width=400, initial-scale=1">
+  <style>
+    html,body { margin:0;padding:0;background:#4ec0ca;}
+    body { font-family: 'Segoe UI', Arial, sans-serif; }
+    #gameCanvas { display:block; margin:40px auto 0 auto; background:#4ec0ca; box-shadow:0 6px 36px #3336; border-radius:14px;}
+    #fb-auth-overlay {
+      display:flex; position:fixed; z-index:9; left:0; top:0; width:100vw; height:100vh;
+      align-items:center; justify-content:center; background:rgba(0,0,0,0.7);}
+    #fb-login-box, #fb-register-box {
+      background:#fff; border-radius:15px; box-shadow:0 2px 24px #444; padding:30px 28px 22px 28px;
+      min-width:240px; max-width:330px; position:relative;}
+    #fb-register-box { display:none;}
+    #fb-homage { width:220px; height:100px; position:relative; margin:auto; margin-bottom:8px;}
+    #fb-userbar {
+      position:absolute;top:10px;left:10px;z-index:10;display:none;
+      font-family:sans-serif;font-size:1.08em;background:rgba(255,255,255,0.93);
+      padding:7px 18px 7px 12px;border-radius:18px;box-shadow:0 1px 8px #ccc;}
+  </style>
 </head>
 <body>
-  <h1>Flappy Bird</h1>
-  <canvas id="gameCanvas" width="320" height="480"></canvas>
-  <p>Press SPACE or click to flap!</p>
-  <script src="game.js"></script>
+<!-- LOGIN/REGISTER OVERLAY -->
+<div id="fb-auth-overlay">
+  <div id="fb-login-box">
+    <div id="fb-homage"></div>
+    <h2 style="margin-top:0;text-align:center;">Flappy Bird Login</h2>
+    <input id="fb-login-user" placeholder="Username" style="width:90%;margin-bottom:8px;"><br>
+    <input id="fb-login-pass" type="password" placeholder="Password" style="width:90%;margin-bottom:12px;"><br>
+    <button onclick="fbLogin()" style="width:90%;">Sign In</button>
+    <button onclick="fbShowRegister()" style="width:90%;margin-top:6px;">Register</button>
+    <div id="fb-login-msg" style="min-height:18px;margin-top:10px;color:#c22;"></div>
+  </div>
+  <div id="fb-register-box">
+    <h2 style="margin-top:0;text-align:center;">Register</h2>
+    <input id="fb-reg-user" placeholder="Username" style="width:90%;margin-bottom:8px;"><br>
+    <input id="fb-reg-pass" type="password" placeholder="Password" style="width:90%;margin-bottom:12px;"><br>
+    <button onclick="fbRegister()" style="width:90%;">Register</button>
+    <button onclick="fbShowLogin()" style="width:90%;margin-top:6px;">Back to Login</button>
+    <div id="fb-register-msg" style="min-height:18px;margin-top:10px;color:#278a21;"></div>
+  </div>
+</div>
+<!-- User bar (top left) -->
+<div id="fb-userbar">
+  <span id="fb-userbar-welcome"></span>
+  <button onclick="fbLogout()" style="margin-left:12px;background:#ffeaea;border:1px solid #fdc7c7;border-radius:6px;color:#b22222;cursor:pointer;">Logout</button>
+</div>
+<!-- Game canvas -->
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+<script>
+// --- LOGIN/REGISTER LOGIC ---
+let fbCurrentUser = "";
+
+function fbSaveUser(u, p) {
+  localStorage.setItem('fb-user-'+u, JSON.stringify({ password: p }));
+}
+function fbGetUser(u) {
+  try { return JSON.parse(localStorage.getItem('fb-user-'+u)); } catch(e){ return null; }
+}
+
+function fbLogin() {
+  let u = document.getElementById('fb-login-user').value.trim();
+  let p = document.getElementById('fb-login-pass').value;
+  let user = fbGetUser(u);
+  let msg = document.getElementById('fb-login-msg');
+  if (!u || !p) { msg.textContent = "Enter username & password."; msg.style.color="#c22"; return; }
+  if (!user) { msg.textContent = "User not found."; msg.style.color="#c22"; return; }
+  if (user.password !== p) { msg.textContent = "Wrong password."; msg.style.color="#c22"; return; }
+  // Success:
+  fbCurrentUser = u;
+  document.getElementById('fb-auth-overlay').style.display = "none";
+  fbUpdateUserbar();
+  window.fbLoginDone && window.fbLoginDone();
+}
+function fbRegister() {
+  let u = document.getElementById('fb-reg-user').value.trim();
+  let p = document.getElementById('fb-reg-pass').value;
+  let msg = document.getElementById('fb-register-msg');
+  if (!u || !p) { msg.textContent = "Enter username & password."; msg.style.color="#c22"; return; }
+  if (fbGetUser(u)) { msg.textContent = "User already exists."; msg.style.color="#c22"; return; }
+  fbSaveUser(u, p);
+  msg.textContent = "Registered! You can sign in now.";
+  msg.style.color = "#278a21";
+}
+function fbShowLogin() {
+  document.getElementById('fb-register-box').style.display = "none";
+  document.getElementById('fb-login-box').style.display = "";
+  document.getElementById('fb-login-msg').textContent = "";
+  document.getElementById('fb-register-msg').textContent = "";
+}
+function fbShowRegister() {
+  document.getElementById('fb-login-box').style.display = "none";
+  document.getElementById('fb-register-box').style.display = "";
+  document.getElementById('fb-login-msg').textContent = "";
+  document.getElementById('fb-register-msg').textContent = "";
+}
+function fbLogout() {
+  fbCurrentUser = "";
+  document.getElementById('fb-userbar').style.display = "none";
+  document.getElementById('fb-auth-overlay').style.display = "flex";
+  fbShowLogin();
+  gamePause = true;
+}
+function fbUpdateUserbar() {
+  if (fbCurrentUser) {
+    document.getElementById('fb-userbar-welcome').textContent = "Welcome, " + fbCurrentUser + "!";
+    document.getElementById('fb-userbar').style.display = "";
+  } else {
+    document.getElementById('fb-userbar').style.display = "none";
+  }
+}
+
+// On page load, show login overlay
+window.addEventListener('DOMContentLoaded', function() {
+  if (!fbCurrentUser) {
+    document.getElementById('fb-auth-overlay').style.display = "flex";
+    fbShowLogin();
+  }
+  fbUpdateUserbar();
+  fbAnimateHomage();
+});
+
+// --- ANIMATED FLAPPY BIRD SPRITE + HOMAGE ANIMATION (for login screen) ---
+function fbAnimateHomage() {
+  let homageDiv = document.getElementById("fb-homage");
+  if (!homageDiv) return;
+  homageDiv.innerHTML = `<canvas id="fb-homage-canvas" width="220" height="100"></canvas>`;
+  let c = document.getElementById("fb-homage-canvas");
+  let ctx = c.getContext('2d');
+
+  function drawFlappyBird(ctx, x, y, frame, rot=0, scale=1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(scale,scale);
+    ctx.beginPath(); ctx.arc(0,0,12,0,2*Math.PI); ctx.fillStyle="#f9e24f"; ctx.fill(); // Body
+    ctx.beginPath(); ctx.arc(-2,5,6,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); // Belly
+    ctx.beginPath(); ctx.arc(7,2,4,0,2*Math.PI); ctx.fillStyle="#fff2ba"; ctx.fill(); // Cheek
+    ctx.save();
+    ctx.rotate((frame===1)?-0.3:(frame===2?0.22:0)); // Wing anim
+    ctx.beginPath(); ctx.ellipse(-2,8,6,3,0,0,2*Math.PI); ctx.fillStyle="#ec9f2e"; ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.rotate(0.06);
+    ctx.beginPath(); ctx.moveTo(13,3); ctx.lineTo(23,7); ctx.lineTo(11,7); ctx.closePath(); ctx.fillStyle="#ec9f2e"; ctx.fill(); // Beak
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(7,-2,3,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); // Eye
+    ctx.beginPath(); ctx.arc(8,-2,1.2,0,2*Math.PI); ctx.fillStyle="#3b2b14"; ctx.fill(); // Eye dot
+    ctx.lineWidth=2; ctx.strokeStyle="#333";
+    ctx.beginPath(); ctx.arc(0,0,12,0,2*Math.PI); ctx.stroke();
+    ctx.restore();
+  }
+  let pipes = [{x:220, gap:45, y:35},{x:380,gap:45,y:50}];
+  let birdY = 50, birdV = 0, frame = 0, frameCt = 0, t = 0;
+  function draw() {
+    ctx.clearRect(0,0,c.width,c.height);
+    ctx.fillStyle="#7edaff"; ctx.fillRect(0,0,220,100);
+    pipes.forEach(p=>{
+      ctx.fillStyle="#73d216";
+      ctx.fillRect(p.x,0,32,p.y-18);
+      ctx.fillRect(p.x,p.y+p.gap,32,100-(p.y+p.gap));
+      ctx.fillStyle="#c3e72e";
+      ctx.fillRect(p.x, p.y-18, 32, 8);
+      ctx.fillRect(p.x, p.y+p.gap, 32, 8);
+    });
+    drawFlappyBird(ctx,55,birdY,frame,Math.max(-0.3,Math.min(0.5,birdV*0.04)),1.2);
+    ctx.font="bold 22px Arial"; ctx.textAlign="left";
+    ctx.strokeStyle="#fff"; ctx.lineWidth=6; ctx.strokeText("Flappy",95,45); ctx.strokeText("Bird",140,75);
+    ctx.fillStyle="#f9e24f"; ctx.fillText("Flappy",95,45);
+    ctx.fillStyle="#65c7ff"; ctx.fillText("Bird",140,75);
+  }
+  function anim() {
+    t++;
+    pipes.forEach(p=>{p.x-=2;if(p.x<-40){p.x=220+Math.random()*40;p.y=30+Math.random()*30;}});
+    birdY+=birdV; birdV+=0.18;
+    if (birdY>72) {birdY=72; birdV=-2;}
+    if (t%5===0){ frameCt++; frame=(frameCt%3);}
+    draw();
+    requestAnimationFrame(anim);
+  }
+  anim();
+}
+
+// --- ANIMATED FLAPPY BIRD SPRITE FOR GAME ---
+function drawGameBird(ctx,x,y,frame,rot,scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.scale(scale,scale);
+  ctx.beginPath(); ctx.arc(0,0,12,0,2*Math.PI); ctx.fillStyle="#f9e24f"; ctx.fill(); // Body
+  ctx.beginPath(); ctx.arc(-2,5,6,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); // Belly
+  ctx.beginPath(); ctx.arc(7,2,4,0,2*Math.PI); ctx.fillStyle="#fff2ba"; ctx.fill(); // Cheek
+  ctx.save();
+  ctx.rotate((frame===1)?-0.3:(frame===2?0.22:0)); // Wing anim
+  ctx.beginPath(); ctx.ellipse(-2,8,6,3,0,0,2*Math.PI); ctx.fillStyle="#ec9f2e"; ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.rotate(0.06);
+  ctx.beginPath(); ctx.moveTo(13,3); ctx.lineTo(23,7); ctx.lineTo(11,7); ctx.closePath(); ctx.fillStyle="#ec9f2e"; ctx.fill(); // Beak
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(7,-2,3,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); // Eye
+  ctx.beginPath(); ctx.arc(8,-2,1.2,0,2*Math.PI); ctx.fillStyle="#3b2b14"; ctx.fill(); // Eye dot
+  ctx.lineWidth=2; ctx.strokeStyle="#333";
+  ctx.beginPath(); ctx.arc(0,0,12,0,2*Math.PI); ctx.stroke();
+  ctx.restore();
+}
+
+// --- FLAPPY BIRD GAME ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let gamePause = false, gameOver = false, gameStarted = false, score = 0, bestScore = 0;
+let birdY = 260, birdV = 0, birdX = 90, gravity = 0.5, jump = -7.5;
+let pipes = [];
+let birdFrame = 0, birdFrameCt = 0;
+let pipeGap = 130, pipeWidth = 52, pipeSpeed = 2.1;
+
+function resetGame() {
+  score = 0;
+  birdY = 260; birdV = 0;
+  pipes = [];
+  for (let i=0; i<3; ++i) {
+    pipes.push({x:400 + i*180, y:Math.random()*200+80});
+  }
+  gameOver = false;
+  gameStarted = false;
+}
+
+function saveBestScore() {
+  if (fbCurrentUser) {
+    let prev = parseInt(localStorage.getItem('fb-score-'+fbCurrentUser)||0);
+    if (score > prev) localStorage.setItem('fb-score-'+fbCurrentUser, score);
+  }
+}
+function loadBestScore() {
+  if (fbCurrentUser) {
+    bestScore = parseInt(localStorage.getItem('fb-score-'+fbCurrentUser)||0);
+  } else {
+    bestScore = 0;
+  }
+}
+
+// Flap on click or space
+window.addEventListener('keydown',function(e){
+  if (e.code==="Space"||e.key===" ") {
+    if (!gamePause && !gameOver) { birdV = jump; gameStarted = true; }
+    if (gameOver && !gamePause) { resetGame(); }
+  }
+});
+canvas.addEventListener('mousedown',function(e){
+  if (!gamePause && !gameOver) { birdV = jump; gameStarted = true; }
+  if (gameOver && !gamePause) { resetGame(); }
+});
+
+function gameLoop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // BG
+  ctx.fillStyle="#4ec0ca"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Pipes
+  ctx.save();
+  for (let p of pipes) {
+    ctx.fillStyle="#73d216";
+    ctx.fillRect(p.x,0,pipeWidth,p.y-70);
+    ctx.fillRect(p.x,p.y+pipeGap,pipeWidth,600-(p.y+pipeGap));
+    ctx.fillStyle="#c3e72e";
+    ctx.fillRect(p.x, p.y-70, pipeWidth, 15);
+    ctx.fillRect(p.x, p.y+pipeGap, pipeWidth, 15);
+  }
+  ctx.restore();
+  // Bird physics/anim
+  if (!gamePause && !gameOver && gameStarted) {
+    birdV += gravity;
+    birdY += birdV;
+  }
+  birdFrameCt++;
+  if (birdFrameCt%6===0) birdFrame = (birdFrame+1)%3;
+  let rot = Math.max(-0.4,Math.min(0.5,birdV*0.03));
+  drawGameBird(ctx,birdX,birdY,birdFrame,rot,1.25);
+
+  // Pipes move
+  if (!gamePause && !gameOver && gameStarted) {
+    for (let p of pipes) p.x -= pipeSpeed;
+    if (pipes[0].x < -pipeWidth) {
+      pipes.shift();
+      pipes.push({x: pipes[pipes.length-1].x+180, y:Math.random()*200+80});
+      score++;
+      if (score>bestScore) { bestScore = score; saveBestScore(); }
+    }
+  }
+  // Collision
+  for (let p of pipes) {
+    if (birdX+12>p.x && birdX-12<p.x+pipeWidth &&
+      (birdY-12<p.y-70+15 || birdY+12>p.y+pipeGap)) {
+      gameOver = true; saveBestScore();
+    }
+  }
+  if (birdY+12>canvas.height || birdY-12<0) { gameOver = true; saveBestScore(); }
+  // UI
+  ctx.font="bold 36px Arial"; ctx.textAlign="center";
+  ctx.strokeStyle="#fff"; ctx.lineWidth=7; ctx.strokeText(score,canvas.width/2,100);
+  ctx.fillStyle="#ec9f2e"; ctx.fillText(score,canvas.width/2,100);
+  ctx.font="bold 17px Arial"; ctx.fillStyle="#fff";
+  ctx.fillText("High: "+bestScore,canvas.width/2,138);
+  if (!gameStarted) {
+    ctx.font="bold 24px Arial"; ctx.fillStyle="#fff";
+    ctx.fillText("Click or Space to Flap!",canvas.width/2,200);
+  }
+  if (gameOver) {
+    ctx.font="bold 38px Arial"; ctx.fillStyle="#e43030";
+    ctx.fillText("Game Over!",canvas.width/2,250);
+    ctx.font="bold 19px Arial"; ctx.fillStyle="#fff";
+    ctx.fillText("Click or press Space to restart",canvas.width/2,285);
+  }
+  requestAnimationFrame(gameLoop);
+}
+// On login, load best score for user
+window.fbLoginDone = function() {
+  loadBestScore();
+  resetGame();
+  gamePause = false;
+};
+resetGame(); loadBestScore(); gameLoop();
+</script>
 </body>
 </html>
